@@ -4,6 +4,9 @@ import { Header } from './components/Header';
 import { ToastProvider } from './components/Toast';
 import { CreateBatchModal } from './components/CreateBatchModal';
 import { EssayGradingModal } from './components/EssayGradingModal';
+import { BatchDetailView } from './components/BatchDetailView';
+import { UploadEssayModal } from './components/UploadEssayModal';
+import { ImageViewerModal } from './components/ImageViewerModal';
 
 // Views
 import { DashboardView } from './views/DashboardView';
@@ -16,18 +19,10 @@ import { AnalyticsView } from './views/AnalyticsView';
 import { CommentBankView } from './views/CommentBankView';
 import { SettingsView } from './views/SettingsView';
 
-// Mock Initial Data
-import {
-  initialClasses,
-  initialBatches,
-  initialSubmissions,
-  initialExamsRubrics as initialRubrics,
-  initialStudents,
-  initialCommentBank,
-  initialTeacherProfile,
-} from './data/mockData';
+// Services
 import { classStudentService } from './services/classStudentService';
 import { examRubricService } from './services/examRubricService';
+import { batchSubmissionService } from './services/batchSubmissionService';
 
 import {
   NavTabId,
@@ -38,25 +33,43 @@ import {
   Student,
   CommentBankItem,
   TeacherProfile,
+  PageImageItem,
+  SubmissionStatus,
 } from './types';
+import { initialCommentBank, initialTeacherProfile } from './data/mockData';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavTabId>('dashboard');
+  const [activeTab, setActiveTab] = useState<NavTabId>('batches');
 
   // Application State backed by Service / LocalStorage
   const [classes, setClasses] = useState<ClassRoom[]>(() => classStudentService.getClasses());
-  const [batches, setBatches] = useState<GradingBatch[]>(initialBatches);
-  const [submissions, setSubmissions] = useState<EssaySubmission[]>(initialSubmissions);
+  const [batches, setBatches] = useState<GradingBatch[]>(() => batchSubmissionService.getBatches());
+  const [submissions, setSubmissions] = useState<EssaySubmission[]>(() => batchSubmissionService.getSubmissions());
   const [rubrics, setRubrics] = useState<ExamRubric[]>(() => examRubricService.getRubrics());
   const [students, setStudents] = useState<Student[]>(() => classStudentService.getStudents());
   const [commentBank, setCommentBank] = useState<CommentBankItem[]>(initialCommentBank);
   const [teacherProfile, setTeacherProfile] = useState<TeacherProfile>(initialTeacherProfile);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modals & Navigation state
+  // Modals & Active Detailed Views State
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
+  const [selectedBatchForDetail, setSelectedBatchForDetail] = useState<GradingBatch | null>(null);
+  const [isUploadEssayModalOpen, setIsUploadEssayModalOpen] = useState(false);
+  
+  // Image Viewer State
+  const [viewerImages, setViewerImages] = useState<PageImageItem[]>([]);
+  const [viewerInitialIdx, setViewerInitialIdx] = useState(0);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+
+  // Grading Workspace Modal State
   const [selectedGradingSubmission, setSelectedGradingSubmission] = useState<EssaySubmission | null>(null);
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string | undefined>(undefined);
+
+  // Synchronize helper to refresh state from services
+  const refreshBatchesAndSubmissions = () => {
+    setBatches(batchSubmissionService.getBatches());
+    setSubmissions(batchSubmissionService.getSubmissions());
+  };
 
   // Exam & Rubric Management Handlers
   const handleAddRubric = (newRubric: ExamRubric) => {
@@ -86,7 +99,7 @@ export default function App() {
     teacherInCharge?: string;
     targetGraduationRate?: number;
   }) => {
-    const newCls = classStudentService.createClass(data);
+    classStudentService.createClass(data);
     setClasses(classStudentService.getClasses());
   };
 
@@ -142,7 +155,7 @@ export default function App() {
   };
 
   // Calculate dynamic badges for Sidebar
-  const pendingEssaysCount = submissions.filter((s) => s.status === 'pending').length;
+  const pendingEssaysCount = submissions.filter((s) => s.status === 'Chưa xử lý' || s.status === 'pending').length;
   const inProgressBatchesCount = batches.filter((b) => b.status === 'in_progress').length;
 
   // Handle batch creation
@@ -152,84 +165,101 @@ export default function App() {
       'id' | 'createdAt' | 'gradedByAiCount' | 'reviewedByTeacherCount' | 'averageScore' | 'status'
     >
   ) => {
-    const newBatchId = `batch-${Date.now()}`;
-    const newBatch: GradingBatch = {
-      ...newBatchData,
-      id: newBatchId,
-      createdAt: new Date().toISOString().split('T')[0],
-      gradedByAiCount: 0,
-      reviewedByTeacherCount: 0,
-      averageScore: 0,
-      status: 'in_progress',
-    };
-
-    setBatches((prev) => [newBatch, ...prev]);
-
-    // Generate starter submissions for this batch from the selected class
+    const newBatch = batchSubmissionService.createBatch(newBatchData);
+    
+    // Auto-generate starter student submissions from class roster
     const targetStudents = students.filter((s) => s.classId === newBatch.classId);
-    const generatedSubmissions: EssaySubmission[] = targetStudents.slice(0, 3).map((st, idx) => ({
-      id: `sub-${newBatchId}-${idx + 1}`,
-      batchId: newBatchId,
-      studentId: st.id,
-      studentName: st.name,
-      studentCode: st.code,
-      className: newBatch.className,
-      examId: newBatch.examId,
-      examTitle: newBatch.examTitle,
-      submittedAt: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      wordCount: 850,
-      essayContent: `Bài làm mẫu của ${st.name} cho đợt chấm "${newBatch.name}".\n\nI. PHẦN ĐỌC HIỂU (4.0 điểm)\nCâu 1: Thể thơ tự do. Phương thức biểu đạt chính là biểu cảm kết hợp nghị luận.\nCâu 2: Hình ảnh người lao động được khắc họa qua sự cần cù, nhẫn nại và đức hy sinh thầm lặng.\nCâu 3: Biện pháp tu từ điệp ngữ "dẫu qua bao" nhấn mạnh sức sống bền bỉ và vẻ đẹp tâm hồn kiên cường của con người trước nghịch cảnh.\nCâu 4: Bài học rút ra: Con người cần sống có lý tưởng, biết trân trọng cội nguồn và không ngừng nỗ lực vươn lên trong cuộc sống.\n\nII. PHẦN NGHỊ LUẬN XÃ HỘI (2.0 điểm)\nTrong hành trình hoàn thiện nhân cách của mỗi người trẻ, sự tự lập và lòng kiên trì đóng vai trò như chiếc chìa khóa vạn năng mở ra cánh cửa thành công. Tự lập không chỉ đơn thuần là việc tự lo cho cuộc sống cá nhân, mà còn là bản lĩnh dám chịu trách nhiệm về những quyết định của chính mình. Khi đối mặt với thử thách trong học tập và cuộc sống, người có ý chí sẽ không chùn bước trước thất bại, coi khó khăn là cơ hội tôi luyện bản thân. Ngược lại, lối sống ỷ lại, thụ động sẽ triệt tiêu khả năng sáng tạo và khiến con người dần tụt hậu. Bởi vậy, thế hệ trẻ hôm nay cần rèn luyện tinh thần tự học, dũng cảm đương đầu với thách thức để trở thành công dân có ích cho xã hội.\n\nIII. PHẦN NGHỊ LUẬN VĂN HỌC (4.0 điểm)\nNghệ thuật đích thực bao giờ cũng hướng con người tới cái đẹp chân - thiện - mỹ. Qua đoạn trích tác phẩm, nhà văn đã thể hiện cái nhìn nhân đạo sâu sắc đối với số phận con người. Bằng ngòi bút tài hoa, sự kết hợp nhuần nhuyễn giữa hiện thực và chất thơ lãng mạn, tác giả đã khắc họa vẻ đẹp tâm hồn nhân vật đầy sống động, giàu sức truyền cảm. Tác phẩm không chỉ khẳng định tài năng bậc thầy trong nghệ thuật xây dựng hình tượng mà còn gửi gắm bức thông điệp nhân văn cao cả về niềm tin vào cuộc sống.`,
-    }));
-
-    if (generatedSubmissions.length > 0) {
-      setSubmissions((prev) => [...generatedSubmissions, ...prev]);
+    if (targetStudents.length > 0) {
+      targetStudents.forEach((st) => {
+        batchSubmissionService.createSubmission({
+          batchId: newBatch.id,
+          studentId: st.id,
+          studentName: st.fullName || st.name || 'Học sinh',
+          studentCode: st.studentCode || st.code || 'HS',
+          className: newBatch.className,
+          examId: newBatch.examId,
+          examTitle: newBatch.examTitle,
+          status: 'Chưa xử lý',
+          ocrStatus: 'Chưa đọc',
+          aiStatus: 'Chưa chấm',
+          teacherStatus: 'Chưa duyệt',
+          essayContent: `Bài làm khảo sát môn Ngữ văn của học sinh ${st.fullName || st.name}.`,
+          wordCount: 0,
+        });
+      });
     }
 
+    refreshBatchesAndSubmissions();
+    setSelectedBatchForDetail(newBatch);
     setActiveTab('batches');
+  };
+
+  // Handle uploading and assigning pages to a student
+  const handleSaveUploadEssay = (submissionData: {
+    studentId: string;
+    studentName: string;
+    studentCode: string;
+    className: string;
+    examId: string;
+    examTitle: string;
+    pageImages: PageImageItem[];
+    notes?: string;
+  }) => {
+    if (!selectedBatchForDetail) return;
+
+    // Check if submission already exists for this student in the batch
+    const existing = submissions.find(
+      (s) => s.batchId === selectedBatchForDetail.id && s.studentId === submissionData.studentId
+    );
+
+    if (existing) {
+      batchSubmissionService.updateSubmission(existing.id, {
+        pageImages: submissionData.pageImages,
+        pageCount: submissionData.pageImages.length,
+        notes: submissionData.notes,
+        status: 'Đã đọc',
+        ocrStatus: 'Đã đọc',
+      });
+    } else {
+      batchSubmissionService.createSubmission({
+        batchId: selectedBatchForDetail.id,
+        studentId: submissionData.studentId,
+        studentName: submissionData.studentName,
+        studentCode: submissionData.studentCode,
+        className: submissionData.className,
+        examId: submissionData.examId,
+        examTitle: submissionData.examTitle,
+        pageImages: submissionData.pageImages,
+        pageCount: submissionData.pageImages.length,
+        notes: submissionData.notes,
+        status: 'Đã đọc',
+        ocrStatus: 'Đã đọc',
+        aiStatus: 'Chưa chấm',
+        teacherStatus: 'Chưa duyệt',
+        essayContent: `[Bài làm gồm ${submissionData.pageImages.length} trang tài liệu đã được tải lên và sẵn sàng chấm]`,
+      });
+    }
+
+    refreshBatchesAndSubmissions();
+  };
+
+  // Handle deleting submission
+  const handleDeleteSubmission = (id: string) => {
+    batchSubmissionService.deleteSubmission(id);
+    refreshBatchesAndSubmissions();
+  };
+
+  // Handle updating status
+  const handleUpdateSubmissionStatus = (id: string, status: SubmissionStatus) => {
+    batchSubmissionService.updateSubmission(id, { status });
+    refreshBatchesAndSubmissions();
   };
 
   // Handle saving an essay grading (from Teacher / AI)
   const handleSaveGrading = (updatedSubmission: EssaySubmission) => {
-    setSubmissions((prev) =>
-      prev.map((sub) => (sub.id === updatedSubmission.id ? updatedSubmission : sub))
-    );
+    batchSubmissionService.updateSubmission(updatedSubmission.id, updatedSubmission);
+    refreshBatchesAndSubmissions();
 
-    // Update batch stats dynamically
-    setBatches((prev) =>
-      prev.map((b) => {
-        if (b.id === updatedSubmission.batchId) {
-          const batchSubmissions = submissions.map((s) =>
-            s.id === updatedSubmission.id ? updatedSubmission : s
-          ).filter((s) => s.batchId === b.id);
-
-          const reviewedCount = batchSubmissions.filter((s) => s.status === 'teacher_reviewed').length;
-          const aiCount = batchSubmissions.filter(
-            (s) => s.status === 'ai_graded' || s.status === 'teacher_reviewed'
-          ).length;
-
-          const scoredList = batchSubmissions
-            .map((s) => s.teacherGrading?.finalScore || s.aiGrading?.overallScore)
-            .filter((score): score is number => typeof score === 'number');
-
-          const avg =
-            scoredList.length > 0
-              ? Number((scoredList.reduce((acc, curr) => acc + curr, 0) / scoredList.length).toFixed(2))
-              : b.averageScore;
-
-          return {
-            ...b,
-            reviewedByTeacherCount: reviewedCount,
-            gradedByAiCount: Math.max(b.gradedByAiCount, aiCount),
-            averageScore: avg,
-            status: reviewedCount >= b.totalEssays ? 'completed' : 'in_progress',
-          };
-        }
-        return b;
-      })
-    );
-
-    // Update active grading submission if currently opened
     if (selectedGradingSubmission && selectedGradingSubmission.id === updatedSubmission.id) {
       setSelectedGradingSubmission(updatedSubmission);
     }
@@ -237,115 +267,112 @@ export default function App() {
 
   // Handle batch AI grading of all pending submissions
   const handleBatchAiGradeAll = () => {
-    setSubmissions((prev) =>
-      prev.map((sub) => {
-        if (sub.status === 'pending') {
-          return {
-            ...sub,
-            status: 'ai_graded',
-            aiGrading: {
-              overallScore: 8.0,
-              criteriaScores: [
-                {
-                  id: 'crit-dh',
-                  name: 'I. Đọc hiểu văn bản (4.0đ)',
-                  maxScore: 4.0,
-                  aiScore: 3.5,
-                  teacherScore: 3.5,
-                  aiReasoning: 'Trả lời đúng thể thơ, nêu đủ các tầng ý nghĩa biểu đạt.',
-                },
-                {
-                  id: 'crit-nlxh',
-                  name: 'II. Nghị luận xã hội (2.0đ)',
-                  maxScore: 2.0,
-                  aiScore: 1.75,
-                  teacherScore: 1.75,
-                  aiReasoning: 'Cấu trúc đoạn mạch lạc, lập luận thuyết phục, có dẫn chứng.',
-                },
-                {
-                  id: 'crit-nlvh',
-                  name: 'III. Nghị luận văn học (4.0đ)',
-                  maxScore: 4.0,
-                  aiScore: 3.25,
-                  teacherScore: 3.25,
-                  aiReasoning: 'Cảm thụ tốt, bám sát văn bản, hành văn trôi chảy.',
-                },
-              ],
-              strengths: [
-                'Nắm chắc kỹ năng đọc hiểu và trả lời trúng trọng tâm.',
-                'Hành văn mạch lạc, dẫn chứng tiêu biểu.',
-              ],
-              weaknesses: [
-                'Cần mở rộng thêm phần lý luận văn học để bài viết có chiều sâu hơn.',
-              ],
-              corrections: [],
-              generalFeedback: 'Bài làm khá tốt, nắm chắc phương pháp làm bài theo cấu trúc GDPT 2018.',
-              evaluatedAt: new Date().toISOString(),
-            },
-          };
-        }
-        return sub;
-      })
-    );
+    submissions.forEach((sub) => {
+      if (sub.status === 'Chưa xử lý' || sub.status === 'pending' || sub.status === 'Đã đọc') {
+        batchSubmissionService.updateSubmission(sub.id, {
+          status: 'AI đã chấm',
+          aiStatus: 'AI đã chấm',
+          aiScore: 8.25,
+          aiGrading: {
+            overallScore: 8.25,
+            criteriaScores: [
+              {
+                id: 'crit-dh',
+                name: 'Phần Đọc hiểu (4.0đ)',
+                maxScore: 4.0,
+                aiScore: 3.5,
+                teacherScore: 3.5,
+                aiReasoning: 'Trả lời đúng 4 câu hỏi đọc hiểu theo cấu trúc ma trận chuẩn.',
+              },
+              {
+                id: 'crit-nlxh',
+                name: 'Phần Nghị luận xã hội (2.0đ)',
+                maxScore: 2.0,
+                aiScore: 1.75,
+                teacherScore: 1.75,
+                aiReasoning: 'Đoạn văn mạch lạc, lập luận chặt chẽ, dẫn chứng thực tế.',
+              },
+              {
+                id: 'crit-nlvh',
+                name: 'Phần Nghị luận văn học (4.0đ)',
+                maxScore: 4.0,
+                aiScore: 3.0,
+                teacherScore: 3.0,
+                aiReasoning: 'Cảm thụ tốt, bám sát văn bản ngữ liệu, hành văn giàu cảm xúc.',
+              },
+            ],
+            strengths: ['Bố cục 3 phần rõ ràng', 'Dẫn chứng sinh động', 'Hành văn lưu loát'],
+            weaknesses: ['Cần chú ý liên hệ mở rộng'],
+            generalFeedback: 'Bài làm đạt yêu cầu theo chuẩn cấu trúc Đề thi Tốt nghiệp THPT 2025.',
+            corrections: [],
+            evaluatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            modelUsed: 'gemini-3.7-flash',
+          },
+        });
+      }
+    });
 
-    // Update batches to reflect AI graded count
-    setBatches((prev) =>
-      prev.map((b) => ({
-        ...b,
-        gradedByAiCount: b.totalEssays,
-      }))
-    );
+    refreshBatchesAndSubmissions();
   };
 
-  // Navigation across submissions inside grading modal
+  // Open Image Viewer
+  const handleOpenImageViewer = (images: PageImageItem[], initialIdx: number = 0) => {
+    setViewerImages(images);
+    setViewerInitialIdx(initialIdx);
+    setIsViewerOpen(true);
+  };
+
+  // Navigation inside grading workspace modal
   const handleNavigateSubmission = (direction: 'prev' | 'next') => {
     if (!selectedGradingSubmission) return;
-    const currentIndex = submissions.findIndex((s) => s.id === selectedGradingSubmission.id);
+    const currentList = selectedBatchForDetail
+      ? submissions.filter((s) => s.batchId === selectedBatchForDetail.id)
+      : submissions;
+
+    const currentIndex = currentList.findIndex((s) => s.id === selectedGradingSubmission.id);
     if (currentIndex === -1) return;
 
-    const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-    if (nextIndex >= 0 && nextIndex < submissions.length) {
-      setSelectedGradingSubmission(submissions[nextIndex]);
+    if (direction === 'prev' && currentIndex > 0) {
+      setSelectedGradingSubmission(currentList[currentIndex - 1]);
+    } else if (direction === 'next' && currentIndex < currentList.length - 1) {
+      setSelectedGradingSubmission(currentList[currentIndex + 1]);
     }
   };
 
-  const currentSubmissionIndex = selectedGradingSubmission
-    ? submissions.findIndex((s) => s.id === selectedGradingSubmission.id)
+  const currentSubmissionRubric = rubrics.find((r) => r.id === selectedGradingSubmission?.examId) || rubrics[0];
+  const activeSubmissionsList = selectedBatchForDetail
+    ? submissions.filter((s) => s.batchId === selectedBatchForDetail.id)
+    : submissions;
+  const currentGradingIndex = selectedGradingSubmission
+    ? activeSubmissionsList.findIndex((s) => s.id === selectedGradingSubmission.id)
     : -1;
-
-  const hasPrevSubmission = currentSubmissionIndex > 0;
-  const hasNextSubmission =
-    currentSubmissionIndex >= 0 && currentSubmissionIndex < submissions.length - 1;
-
-  // Selected rubric for the active submission
-  const currentSubmissionRubric = selectedGradingSubmission
-    ? rubrics.find((r) => r.id === selectedGradingSubmission.examId) || rubrics[0]
-    : rubrics[0];
+  const hasPrevSubmission = currentGradingIndex > 0;
+  const hasNextSubmission = currentGradingIndex !== -1 && currentGradingIndex < activeSubmissionsList.length - 1;
 
   return (
     <ToastProvider>
-      <div className="flex h-screen w-full bg-slate-100/70 font-sans text-slate-800 antialiased overflow-hidden">
-        {/* Left Navigation Sidebar */}
+      <div className="flex h-screen bg-slate-100 font-sans text-slate-900 antialiased overflow-hidden">
+        {/* Navigation Sidebar */}
         <Sidebar
           activeTab={activeTab}
-          onTabChange={setActiveTab}
-          pendingEssaysCount={pendingEssaysCount}
-          inProgressBatchesCount={inProgressBatchesCount}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            if (tab !== 'batches') {
+              setSelectedBatchForDetail(null);
+            }
+          }}
+          pendingCount={pendingEssaysCount}
+          inProgressCount={inProgressBatchesCount}
         />
 
-        {/* Main Content View Area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Top Bar / Header */}
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           <Header
-            teacher={teacherProfile}
             activeTab={activeTab}
-            pendingCount={pendingEssaysCount}
-            onOpenCreateBatch={() => setIsCreateBatchModalOpen(true)}
-            onOpenSettings={() => setActiveTab('settings')}
-            onLogout={() => setActiveTab('dashboard')}
-            onNavigateTab={setActiveTab}
+            teacherProfile={teacherProfile}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            onOpenCreateBatch={() => setIsCreateBatchModalOpen(true)}
           />
 
           {/* Body View Container */}
@@ -358,8 +385,8 @@ export default function App() {
                   submissions={submissions}
                   onOpenCreateBatch={() => setIsCreateBatchModalOpen(true)}
                   onSelectBatch={(b) => {
-                    setSelectedBatchFilter(b.id);
-                    setActiveTab('essays');
+                    setSelectedBatchForDetail(b);
+                    setActiveTab('batches');
                   }}
                   onGradeSubmission={(sub) => setSelectedGradingSubmission(sub)}
                   onNavigateTab={setActiveTab}
@@ -367,15 +394,28 @@ export default function App() {
               )}
 
               {activeTab === 'batches' && (
-                <BatchesView
-                  batches={batches}
-                  classes={classes}
-                  onOpenCreateBatch={() => setIsCreateBatchModalOpen(true)}
-                  onSelectBatch={(b) => {
-                    setSelectedBatchFilter(b.id);
-                    setActiveTab('essays');
-                  }}
-                />
+                <>
+                  {selectedBatchForDetail ? (
+                    <BatchDetailView
+                      batch={selectedBatchForDetail}
+                      submissions={submissions}
+                      students={students}
+                      onBack={() => setSelectedBatchForDetail(null)}
+                      onOpenUploadModal={() => setIsUploadEssayModalOpen(true)}
+                      onOpenGradingModal={(sub) => setSelectedGradingSubmission(sub)}
+                      onOpenImageViewer={handleOpenImageViewer}
+                      onDeleteSubmission={handleDeleteSubmission}
+                      onUpdateSubmissionStatus={handleUpdateSubmissionStatus}
+                    />
+                  ) : (
+                    <BatchesView
+                      batches={batches}
+                      classes={classes}
+                      onOpenCreateBatch={() => setIsCreateBatchModalOpen(true)}
+                      onSelectBatch={(b) => setSelectedBatchForDetail(b)}
+                    />
+                  )}
+                </>
               )}
 
               {activeTab === 'essays' && (
@@ -458,6 +498,27 @@ export default function App() {
           classes={classes}
           rubrics={rubrics}
           onCreateBatch={handleCreateBatch}
+        />
+
+        {/* Upload Essay & Multi-page Stitching Modal */}
+        {selectedBatchForDetail && (
+          <UploadEssayModal
+            isOpen={isUploadEssayModalOpen}
+            onClose={() => setIsUploadEssayModalOpen(false)}
+            batch={selectedBatchForDetail}
+            students={students}
+            onSaveEssaySubmission={handleSaveUploadEssay}
+            onOpenViewer={handleOpenImageViewer}
+          />
+        )}
+
+        {/* Image Full-screen Zoom & Rotate Viewer Modal */}
+        <ImageViewerModal
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+          images={viewerImages}
+          initialIndex={viewerInitialIdx}
+          onUpdateImage={(updated) => setViewerImages(updated)}
         />
 
         {/* Essay Grading Workspace Modal */}

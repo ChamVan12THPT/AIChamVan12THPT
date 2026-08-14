@@ -12,6 +12,10 @@ import {
   Sparkles,
   ArrowRight,
   BookOpen,
+  UploadCloud,
+  FileText,
+  Layers,
+  ChevronRight
 } from 'lucide-react';
 import { GradingBatch, ClassRoom } from '../types';
 
@@ -49,10 +53,10 @@ export const BatchesView: React.FC<BatchesViewProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <FolderKanban className="w-6 h-6 text-indigo-600" />
-            <span>Quản lý đợt chấm bài</span>
+            <span>Quản lý Đợt Chấm Bài</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tạo mới và theo dõi các đợt thi thử, kiểm tra định kỳ môn Ngữ văn
+            Tạo đợt chấm, upload ghép ảnh bài viết tay và theo dõi tiến trình OCR & AI chấm
           </p>
         </div>
 
@@ -110,8 +114,9 @@ export const BatchesView: React.FC<BatchesViewProps> = ({
       {/* Batches Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredBatches.map((batch) => {
-          const aiPercent = Math.round((batch.gradedByAiCount / batch.totalEssays) * 100);
-          const teacherPercent = Math.round((batch.reviewedByTeacherCount / batch.totalEssays) * 100);
+          const total = batch.totalEssays || 1;
+          const aiPercent = Math.min(100, Math.round((batch.gradedByAiCount / total) * 100));
+          const teacherPercent = Math.min(100, Math.round((batch.reviewedByTeacherCount / total) * 100));
 
           return (
             <div
@@ -122,10 +127,16 @@ export const BatchesView: React.FC<BatchesViewProps> = ({
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide">
-                      {batch.semester} • {batch.academicYear}
-                    </span>
-                    <h3 className="font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors mt-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide">
+                        Lớp {batch.className}
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-[11px] text-slate-500">
+                        {batch.gradingDate || batch.createdAt}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors mt-1">
                       {batch.name}
                     </h3>
                   </div>
@@ -143,18 +154,30 @@ export const BatchesView: React.FC<BatchesViewProps> = ({
 
                 <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
                   <div className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{batch.className}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Hạn: {batch.dueDate}</span>
+                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="line-clamp-1 font-medium text-slate-700">{batch.examTitle}</span>
                   </div>
                 </div>
 
-                <p className="mt-2 text-xs text-slate-600 line-clamp-1">
-                  <span className="font-semibold text-slate-700">Đề:</span> {batch.examTitle}
-                </p>
+                {/* 5 Thống kê nhanh: Tổng bài, Đã Upload, Đang xử lý, AI chấm, GV duyệt */}
+                <div className="mt-3 grid grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded-xl text-center text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase">Tổng bài</span>
+                    <span className="font-bold text-slate-800">{batch.totalEssays}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase">Đã nộp</span>
+                    <span className="font-bold text-indigo-600">{batch.uploadedCount ?? batch.totalEssays}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase">AI chấm</span>
+                    <span className="font-bold text-sky-600">{batch.gradedByAiCount}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase">GV duyệt</span>
+                    <span className="font-bold text-emerald-600">{batch.reviewedByTeacherCount}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Progress Bars */}
@@ -162,16 +185,16 @@ export const BatchesView: React.FC<BatchesViewProps> = ({
                 <div>
                   <div className="flex items-center justify-between text-[11px] mb-1">
                     <span className="text-slate-500 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-indigo-600" />
+                      <Sparkles className="w-3 h-3 text-sky-600" />
                       AI phân tích:
                     </span>
-                    <span className="font-bold text-indigo-600">
+                    <span className="font-bold text-sky-600">
                       {batch.gradedByAiCount}/{batch.totalEssays} bài ({aiPercent}%)
                     </span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                      className="h-full bg-sky-500 rounded-full transition-all duration-300"
                       style={{ width: `${aiPercent}%` }}
                     />
                   </div>
@@ -200,13 +223,13 @@ export const BatchesView: React.FC<BatchesViewProps> = ({
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400">Điểm TB:</span>
-                  <span className="font-bold text-slate-800 text-sm">
-                    {batch.averageScore > 0 ? `${batch.averageScore}` : '—'}
+                  <span className="font-bold text-indigo-700 text-sm">
+                    {batch.averageScore > 0 ? `${batch.averageScore.toFixed(2)}` : '—'}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1 font-semibold text-indigo-600 group-hover:translate-x-1 transition-transform">
-                  <span>Chấm & Quản lý bài</span>
+                  <span>Xem chi tiết & Upload bài</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </div>
               </div>

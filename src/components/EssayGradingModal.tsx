@@ -50,6 +50,8 @@ export const EssayGradingModal: React.FC<EssayGradingModalProps> = ({
 
   // Local state for grading
   const [activeTab, setActiveTab] = useState<'rubric' | 'feedback' | 'corrections'>('rubric');
+  const [essayViewMode, setEssayViewMode] = useState<'text' | 'images'>('text');
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [showCommentBankDrawer, setShowCommentBankDrawer] = useState(false);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
@@ -63,9 +65,16 @@ export const EssayGradingModal: React.FC<EssayGradingModalProps> = ({
   const [isApproved, setIsApproved] = useState(false);
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
+  const pageImages = submission?.pageImages || [];
+
   // Initialize or update state when submission changes
   useEffect(() => {
     if (submission) {
+      if (submission.pageImages && submission.pageImages.length > 0 && !submission.essayContent) {
+        setEssayViewMode('images');
+      } else {
+        setEssayViewMode('text');
+      }
       if (submission.aiGrading) {
         setCriteriaScores(
           submission.aiGrading.criteriaScores.map((c) => ({
@@ -294,59 +303,133 @@ export const EssayGradingModal: React.FC<EssayGradingModalProps> = ({
             {/* Toolbar above essay */}
             <div className="px-5 py-2.5 border-b border-slate-200/80 bg-white flex items-center justify-between text-xs text-slate-600 shrink-0">
               <div className="flex items-center gap-3">
-                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-indigo-600" />
-                  Bài làm của học sinh
-                </span>
-                <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">
-                  {submission.wordCount || submission.essayContent.split(/\s+/).length} từ
-                </span>
-              </div>
-
-              {/* Font size adjustments */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-400">Cỡ chữ:</span>
-                <button
-                  onClick={() => setFontSize('sm')}
-                  className={`px-2 py-0.5 rounded text-xs ${fontSize === 'sm' ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}
-                >
-                  A-
-                </button>
-                <button
-                  onClick={() => setFontSize('base')}
-                  className={`px-2 py-0.5 rounded text-xs ${fontSize === 'base' ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}
-                >
-                  A
-                </button>
-                <button
-                  onClick={() => setFontSize('lg')}
-                  className={`px-2 py-0.5 rounded text-xs ${fontSize === 'lg' ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}
-                >
-                  A+
-                </button>
-              </div>
-            </div>
-
-            {/* Essay Text Display */}
-            <div className="flex-1 p-6 overflow-y-auto bg-white">
-              <div
-                className={`max-w-2xl mx-auto space-y-4 text-slate-800 leading-relaxed font-serif ${
-                  fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-lg' : 'text-base'
-                }`}
-              >
-                {submission.essayContent.split('\n\n').map((paragraph, index) => (
-                  <div
-                    key={index}
-                    className="p-3 rounded-lg hover:bg-indigo-50/30 transition-colors border border-transparent hover:border-indigo-100 relative group"
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+                  <button
+                    onClick={() => setEssayViewMode('text')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      essayViewMode === 'text'
+                        ? 'bg-white text-indigo-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
                   >
-                    <span className="absolute -left-3 top-3 text-[10px] font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      Đoạn {index + 1}
-                    </span>
-                    <p className="whitespace-pre-line">{paragraph}</p>
-                  </div>
-                ))}
+                    Văn bản (OCR)
+                  </button>
+                  {pageImages.length > 0 && (
+                    <button
+                      onClick={() => setEssayViewMode('images')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all ${
+                        essayViewMode === 'images'
+                          ? 'bg-white text-indigo-700 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Ảnh bài viết</span>
+                      <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                        {pageImages.length}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                {essayViewMode === 'text' && (
+                  <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">
+                    {submission.wordCount || (submission.essayContent ? submission.essayContent.split(/\s+/).length : 0)} từ
+                  </span>
+                )}
               </div>
+
+              {/* Font size adjustments if in text mode */}
+              {essayViewMode === 'text' ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400">Cỡ chữ:</span>
+                  <button
+                    onClick={() => setFontSize('sm')}
+                    className={`px-2 py-0.5 rounded text-xs ${fontSize === 'sm' ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}
+                  >
+                    A-
+                  </button>
+                  <button
+                    onClick={() => setFontSize('base')}
+                    className={`px-2 py-0.5 rounded text-xs ${fontSize === 'base' ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}
+                  >
+                    A
+                  </button>
+                  <button
+                    onClick={() => setFontSize('lg')}
+                    className={`px-2 py-0.5 rounded text-xs ${fontSize === 'lg' ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}
+                  >
+                    A+
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-slate-500 text-xs">
+                  <span>Trang {selectedImageIdx + 1}/{pageImages.length}</span>
+                </div>
+              )}
             </div>
+
+            {/* Essay Text or Page Images Display */}
+            {essayViewMode === 'text' ? (
+              <div className="flex-1 p-6 overflow-y-auto bg-white">
+                <div
+                  className={`max-w-2xl mx-auto space-y-4 text-slate-800 leading-relaxed font-serif ${
+                    fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-lg' : 'text-base'
+                  }`}
+                >
+                  {(submission.essayContent || 'Chưa có nội dung nhận diện văn bản OCR.').split('\n\n').map((paragraph, index) => (
+                    <div
+                      key={index}
+                      className="p-3 rounded-lg hover:bg-indigo-50/30 transition-colors border border-transparent hover:border-indigo-100 relative group"
+                    >
+                      <span className="absolute -left-3 top-3 text-[10px] font-mono text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        Đoạn {index + 1}
+                      </span>
+                      <p className="whitespace-pre-line">{paragraph}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
+                {/* Main page image display */}
+                <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
+                  {pageImages[selectedImageIdx] && (
+                    <img
+                      src={pageImages[selectedImageIdx].previewUrl}
+                      alt={`Trang ${selectedImageIdx + 1}`}
+                      referrerPolicy="no-referrer"
+                      style={{ transform: `rotate(${pageImages[selectedImageIdx].rotation || 0}deg)` }}
+                      className="max-h-full max-w-full object-contain rounded shadow-2xl transition-transform duration-200"
+                    />
+                  )}
+                </div>
+
+                {/* Thumbnails strip */}
+                <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center gap-2 overflow-x-auto">
+                  {pageImages.map((page, idx) => (
+                    <button
+                      key={page.id || idx}
+                      onClick={() => setSelectedImageIdx(idx)}
+                      className={`relative shrink-0 w-14 h-18 rounded border-2 overflow-hidden transition-all ${
+                        selectedImageIdx === idx
+                          ? 'border-indigo-500 ring-2 ring-indigo-400/50 scale-105'
+                          : 'border-slate-700 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img
+                        src={page.previewUrl}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0 inset-x-0 bg-slate-950/90 text-white text-[9px] font-bold text-center py-0.5">
+                        Trang {idx + 1}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Bottom prompt reminder bar */}
             <div className="px-5 py-2.5 bg-slate-100 border-t border-slate-200 text-xs text-slate-600 flex items-center justify-between shrink-0">

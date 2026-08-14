@@ -1,5 +1,32 @@
 export type BatchStatus = 'draft' | 'in_progress' | 'completed';
-export type EssayStatus = 'pending' | 'ai_graded' | 'teacher_reviewed';
+
+// Trạng thái mở rộng cho bài làm theo yêu cầu Module Đợt Chấm Bài
+export type SubmissionStatus =
+  | 'Chưa xử lý'
+  | 'Đang đọc'
+  | 'Đã đọc'
+  | 'AI đang chấm'
+  | 'AI đã chấm'
+  | 'Giáo viên đã duyệt'
+  | 'Cần kiểm tra';
+
+export type OcrStatus = 'Chưa đọc' | 'Đang đọc' | 'Đã đọc' | 'Lỗi đọc';
+export type AiGradingStatus = 'Chưa chấm' | 'AI đang chấm' | 'AI đã chấm' | 'Cần kiểm tra';
+export type TeacherReviewStatus = 'Chưa duyệt' | 'Đang xem' | 'Giáo viên đã duyệt' | 'Yêu cầu chấm lại';
+
+// Tương thích ngược với type cũ
+export type EssayStatus = 'pending' | 'ai_graded' | 'teacher_reviewed' | SubmissionStatus;
+
+export interface PageImageItem {
+  id: string;
+  url: string;
+  name: string;
+  pageNumber: number;
+  rotation: number; // 0, 90, 180, 270
+  fileSize?: number;
+  mimeType?: string;
+  uploadedAt?: string;
+}
 
 export type NavTabId =
   | 'dashboard'
@@ -60,14 +87,31 @@ export interface EssaySubmission {
   className: string;
   examId: string;
   examTitle: string;
-  submittedAt: string;
-  status: EssayStatus;
+  
+  // Page Images & Documents
+  pageImages?: PageImageItem[];
+  pageCount?: number;
+  
+  // Trạng thái theo yêu cầu
+  status: SubmissionStatus | EssayStatus;
+  uploadedAt?: string;
+  ocrStatus?: OcrStatus;
+  aiStatus?: AiGradingStatus;
+  teacherStatus?: TeacherReviewStatus;
+  aiScore?: number;
+  teacherScore?: number;
+  
+  // Nội dung trích xuất hoặc dán
   essayContent: string;
+  submittedAt: string;
   hasHandwritingImage?: boolean;
   handwritingImageUrl?: string;
   wordCount: number;
+  
+  // Kết quả chấm chi tiết
   aiGrading?: AiGradingResult;
   teacherGrading?: TeacherGradingResult;
+  notes?: string;
 }
 
 export interface GradingBatch {
@@ -77,15 +121,22 @@ export interface GradingBatch {
   className: string;
   examId: string;
   examTitle: string;
+  
+  // Thống kê đợt chấm
   totalEssays: number;
+  uploadedCount?: number;
+  processingCount?: number;
   gradedByAiCount: number;
   reviewedByTeacherCount: number;
   averageScore: number;
+  
   status: BatchStatus;
+  gradingDate?: string; // Ngày chấm
   dueDate: string;
   createdAt: string;
   academicYear: string;
   semester: string;
+  notes?: string;
 }
 
 export interface Student {
