@@ -144,6 +144,29 @@ export interface StudentProgressHistoryItem {
   wordCount: number;
 }
 
+export type EssayType =
+  | 'Nghị luận xã hội'
+  | 'Nghị luận văn học'
+  | 'Đọc hiểu'
+  | 'Bài viết tổng hợp'
+  | 'Khác';
+
+export interface RubricScoreLevel {
+  id?: string;
+  score: number;
+  label?: string;
+  description: string;
+}
+
+export interface DetailedRubricCriterion {
+  id: string;
+  name: string;
+  description: string;
+  maxScore: number;
+  levels: RubricScoreLevel[];
+  aiGuidance?: string;
+}
+
 export interface RubricCriterion {
   id: string;
   name: string;
@@ -167,15 +190,37 @@ export interface RubricSection {
 export interface ExamRubric {
   id: string;
   title: string;
-  type: 'Tốt nghiệp THPT 2025' | 'Kiểm tra định kỳ' | 'Khảo sát chất lượng' | 'Luyện đề chuyên sâu';
-  grade: '10' | '11' | '12';
-  timeLimitMinutes: number;
+  subject?: string;
+  grade: '10' | '11' | '12' | 'THCS' | 'Khác' | string;
+  schoolYear?: string;
+  essayType?: EssayType | string;
+  type?: 'Tốt nghiệp THPT 2025' | 'Kiểm tra định kỳ' | 'Khảo sát chất lượng' | 'Luyện đề chuyên sâu' | string;
+  timeLimitMinutes?: number;
   totalScore: number;
+  
+  // Content & Prompts
+  content?: string;
   readingPassage?: string;
-  promptSocial: string;
-  promptLiterature: string;
-  sections: RubricSection[];
+  promptSocial?: string;
+  promptLiterature?: string;
+  
+  // Grading guide
+  gradingGuide?: string;
+  
+  // Structured Rubric Criteria
+  criteriaList?: DetailedRubricCriterion[];
+  sections?: RubricSection[];
+  
+  // Teacher custom rules for AI & notes
+  teacherCustomRules?: string[];
+  teacherCustomPrompt?: string;
+  notes?: string;
+  
+  // Status & metadata
+  status?: 'ready' | 'draft' | 'in_use';
+  usageCount?: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface CommentBankItem {

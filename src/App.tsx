@@ -27,6 +27,7 @@ import {
   initialTeacherProfile,
 } from './data/mockData';
 import { classStudentService } from './services/classStudentService';
+import { examRubricService } from './services/examRubricService';
 
 import {
   NavTabId,
@@ -46,7 +47,7 @@ export default function App() {
   const [classes, setClasses] = useState<ClassRoom[]>(() => classStudentService.getClasses());
   const [batches, setBatches] = useState<GradingBatch[]>(initialBatches);
   const [submissions, setSubmissions] = useState<EssaySubmission[]>(initialSubmissions);
-  const [rubrics, setRubrics] = useState<ExamRubric[]>(initialRubrics);
+  const [rubrics, setRubrics] = useState<ExamRubric[]>(() => examRubricService.getRubrics());
   const [students, setStudents] = useState<Student[]>(() => classStudentService.getStudents());
   const [commentBank, setCommentBank] = useState<CommentBankItem[]>(initialCommentBank);
   const [teacherProfile, setTeacherProfile] = useState<TeacherProfile>(initialTeacherProfile);
@@ -56,6 +57,25 @@ export default function App() {
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
   const [selectedGradingSubmission, setSelectedGradingSubmission] = useState<EssaySubmission | null>(null);
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string | undefined>(undefined);
+
+  // Exam & Rubric Management Handlers
+  const handleAddRubric = (newRubric: ExamRubric) => {
+    setRubrics(examRubricService.getRubrics());
+  };
+
+  const handleUpdateRubric = (updatedRubric: ExamRubric) => {
+    setRubrics(examRubricService.getRubrics());
+  };
+
+  const handleDuplicateRubric = (rubricId: string) => {
+    examRubricService.duplicateRubric(rubricId);
+    setRubrics(examRubricService.getRubrics());
+  };
+
+  const handleDeleteRubric = (rubricId: string) => {
+    examRubricService.deleteRubric(rubricId);
+    setRubrics(examRubricService.getRubrics());
+  };
 
   // Class Management Handlers
   const handleAddClass = (data: {
@@ -402,7 +422,12 @@ export default function App() {
               {activeTab === 'exams' && (
                 <ExamsRubricView
                   rubrics={rubrics}
-                  onOpenCreateBatch={() => setIsCreateBatchModalOpen(true)}
+                  batches={batches}
+                  onAddRubric={handleAddRubric}
+                  onUpdateRubric={handleUpdateRubric}
+                  onDuplicateRubric={handleDuplicateRubric}
+                  onDeleteRubric={handleDeleteRubric}
+                  onOpenCreateBatch={(rubricId) => setIsCreateBatchModalOpen(true)}
                 />
               )}
 
