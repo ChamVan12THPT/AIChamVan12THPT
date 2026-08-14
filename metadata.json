@@ -1,0 +1,7 @@
+{
+  "name": "AI Chấm Văn",
+  "description": "Trợ lý AI hỗ trợ giáo viên Ngữ văn THPT chấm bài viết và quản lý đợt thi tốt nghiệp THPT",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

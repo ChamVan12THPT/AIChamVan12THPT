@@ -1,0 +1,199 @@
+export type BatchStatus = 'draft' | 'in_progress' | 'completed';
+export type EssayStatus = 'pending' | 'ai_graded' | 'teacher_reviewed';
+
+export type NavTabId =
+  | 'dashboard'
+  | 'batches'
+  | 'essays'
+  | 'students'
+  | 'classes'
+  | 'exams'
+  | 'analytics'
+  | 'comment_bank'
+  | 'settings';
+
+export interface CriterionScore {
+  id: string;
+  name: string;
+  maxScore: number;
+  aiScore: number;
+  teacherScore: number;
+  aiReasoning: string;
+  guide?: string;
+}
+
+export interface SuggestedCorrection {
+  id: string;
+  quote: string;
+  paragraphIndex: number;
+  issue: string;
+  suggestion: string;
+  type: 'grammar' | 'expression' | 'argument' | 'knowledge';
+}
+
+export interface AiGradingResult {
+  overallScore: number;
+  criteriaScores: CriterionScore[];
+  strengths: string[];
+  weaknesses: string[];
+  generalFeedback: string;
+  corrections: SuggestedCorrection[];
+  evaluatedAt: string;
+  modelUsed?: string;
+}
+
+export interface TeacherGradingResult {
+  finalScore: number;
+  criteriaScores: { id: string; score: number; note?: string }[];
+  finalFeedback: string;
+  privateNotes?: string;
+  reviewedAt: string;
+  isApproved: boolean;
+}
+
+export interface EssaySubmission {
+  id: string;
+  batchId: string;
+  studentId: string;
+  studentName: string;
+  studentCode: string;
+  className: string;
+  examId: string;
+  examTitle: string;
+  submittedAt: string;
+  status: EssayStatus;
+  essayContent: string;
+  hasHandwritingImage?: boolean;
+  handwritingImageUrl?: string;
+  wordCount: number;
+  aiGrading?: AiGradingResult;
+  teacherGrading?: TeacherGradingResult;
+}
+
+export interface GradingBatch {
+  id: string;
+  name: string;
+  classId: string;
+  className: string;
+  examId: string;
+  examTitle: string;
+  totalEssays: number;
+  gradedByAiCount: number;
+  reviewedByTeacherCount: number;
+  averageScore: number;
+  status: BatchStatus;
+  dueDate: string;
+  createdAt: string;
+  academicYear: string;
+  semester: string;
+}
+
+export interface Student {
+  id: string;
+  studentCode: string;
+  fullName: string;
+  gender: 'Nam' | 'Nữ' | 'Khác';
+  classId: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+
+  // Compatibility & convenience aliases
+  name?: string;
+  code?: string;
+  className?: string;
+  avatar?: string;
+  essayCount?: number;
+  averageScore?: number;
+  latestScore?: number;
+  strengthsSummary?: string;
+  needsImprovementSummary?: string;
+}
+
+export interface ClassRoom {
+  id: string;
+  name: string;
+  grade: '10' | '11' | '12';
+  schoolYear: string;
+  notes?: string;
+  studentCount?: number;
+  gradedEssaysCount?: number;
+  latestAverageScore?: number;
+  averageScore?: number;
+  teacherInCharge?: string;
+  targetGraduationRate?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StudentProgressHistoryItem {
+  essayId: string;
+  batchId: string;
+  batchName: string;
+  examId: string;
+  examTitle: string;
+  submittedAt: string;
+  status: EssayStatus;
+  aiScore?: number;
+  teacherScore?: number;
+  finalScore?: number;
+  generalFeedback?: string;
+  teacherFeedback?: string;
+  strengths: string[];
+  weaknesses: string[];
+  wordCount: number;
+}
+
+export interface RubricCriterion {
+  id: string;
+  name: string;
+  maxScore: number;
+  description: string;
+  scoringGuide: {
+    excellent: string;
+    good: string;
+    average: string;
+    weak: string;
+  };
+}
+
+export interface RubricSection {
+  id: string;
+  title: string;
+  maxScore: number;
+  criteria: RubricCriterion[];
+}
+
+export interface ExamRubric {
+  id: string;
+  title: string;
+  type: 'Tốt nghiệp THPT 2025' | 'Kiểm tra định kỳ' | 'Khảo sát chất lượng' | 'Luyện đề chuyên sâu';
+  grade: '10' | '11' | '12';
+  timeLimitMinutes: number;
+  totalScore: number;
+  readingPassage?: string;
+  promptSocial: string;
+  promptLiterature: string;
+  sections: RubricSection[];
+  createdAt: string;
+}
+
+export interface CommentBankItem {
+  id: string;
+  category: 'Khen ngợi' | 'Lập luận & Dẫn chứng' | 'Diễn đạt & Dùng từ' | 'Chính tả & Ngữ pháp' | 'Mở bài - Kết bài' | 'Liên hệ thực tế';
+  text: string;
+  tags: string[];
+  usageCount: number;
+}
+
+export interface TeacherProfile {
+  id: string;
+  name: string;
+  title: string;
+  school: string;
+  email: string;
+  avatar: string;
+  aiStrictness: 'gentle' | 'standard' | 'rigorous';
+  autoSuggestComments: boolean;
+  preferredRubricStandard: string;
+}
